@@ -12,7 +12,7 @@ jobs:
 
       - name: Build
         run: |
-         cd applis/dev
+         cd /applis/dev
          npm run build
 
       - name: Prepare deployment directory on VPS
