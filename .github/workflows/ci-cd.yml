@@ -1,13 +1,11 @@
-name: Simple CI
+name: Deploy to VPS
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,4 +27,58 @@ jobs:
       run: npm run test
 
     - name: Build
-      run: npm run build 
+      run: npm run build
+
+    - name: Deploy to VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: 148.230.124.150
+        username: root
+        key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDXV8tik9FKkRFAThAPlOHYtidSo/qoHBWTYep5s1s91l0AlXdLQD6JLI/03RyB5JQiRhh/NIz9JXVHw4rCDf6X3DP/PNhNbJQL7m4ylex/u+cJbJwLFBosd7rUEbX3kT0GVwFOySs5jzj1R3C3KdU3dH3ItZT4xoPj36XhvzG5V27Ispn41FAu1Q6pKri62PgbUDeK78in9gjCZcxFQThoFob6d40+UB3MYlKIzP14XwzN55MF7gfiEhRV8LQevX4Zo6cHv7muEJv2nFbjZw0LQhx7NSOhUpbhrG25TJEzCPg7UGDYYeTrqW70Fw5wGdnIMbBuXjZFsQbY13io5PsaA1v/iAFsHW3HwjJ5FLs7IY4yDc7fvVr+pc8Vitp+6tV2ZmFl+zyuk0Eucwd2j8zclxxn3N3LAOmLeK2SNhl4ibZf5QxTJHHQ050T/p9x9gaQunNM7n2D3oZe9qejulnZMVuFZ6yyyrr8SwLVnOdyHW8xBIpfiDBRARCj+891nRzy8KN8XtuhKv/JIKcSNVe/yZCHpARvyX0pklMTvOe0nyL3NSFD2zSjHRkxRVJ0+iDu319H/66tWiUffa5dZqmgZ7x2Rspe0O0DlGBt7xCheoeyW0JOpB5NT8NGzZZYrD9gHiiexbfyxfin/FOhM8dQ0T5KEVzCZwdPPhgA3t0D0Q== ahmed@live.fr
+        port: 22
+        script: |
+          # Create /applis/dev directory
+          sudo mkdir -p /applis/dev
+          
+          # Navigate to the directory
+          cd /applis/dev
+          
+          # Create a backup of current version if it exists
+          if [ -d "vue-app" ]; then
+            sudo mv vue-app vue-app-backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Create new directory for the app
+          sudo mkdir -p vue-app
+          
+          # Set proper permissions
+          sudo chown -R $USER:$USER /applis/dev/vue-app
+
+    - name: Copy files to VPS
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: 148.230.124.150
+        username: root
+        key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDXV8tik9FKkRFAThAPlOHYtidSo/qoHBWTYep5s1s91l0AlXdLQD6JLI/03RyB5JQiRhh/NIz9JXVHw4rCDf6X3DP/PNhNbJQL7m4ylex/u+cJbJwLFBosd7rUEbX3kT0GVwFOySs5jzj1R3C3KdU3dH3ItZT4xoPj36XhvzG5V27Ispn41FAu1Q6pKri62PgbUDeK78in9gjCZcxFQThoFob6d40+UB3MYlKIzP14XwzN55MF7gfiEhRV8LQevX4Zo6cHv7muEJv2nFbjZw0LQhx7NSOhUpbhrG25TJEzCPg7UGDYYeTrqW70Fw5wGdnIMbBuXjZFsQbY13io5PsaA1v/iAFsHW3HwjJ5FLs7IY4yDc7fvVr+pc8Vitp+6tV2ZmFl+zyuk0Eucwd2j8zclxxn3N3LAOmLeK2SNhl4ibZf5QxTJHHQ050T/p9x9gaQunNM7n2D3oZe9qejulnZMVuFZ6yyyrr8SwLVnOdyHW8xBIpfiDBRARCj+891nRzy8KN8XtuhKv/JIKcSNVe/yZCHpARvyX0pklMTvOe0nyL3NSFD2zSjHRkxRVJ0+iDu319H/66tWiUffa5dZqmgZ7x2Rspe0O0DlGBt7xCheoeyW0JOpB5NT8NGzZZYrD9gHiiexbfyxfin/FOhM8dQ0T5KEVzCZwdPPhgA3t0D0Q== ahmed@live.fr
+        port: 22
+        source: "dist/*"
+        target: "/applis/dev/vue-app"
+        strip_components: 0
+
+    - name: Finalize deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: 148.230.124.150
+        username: root
+        key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDXV8tik9FKkRFAThAPlOHYtidSo/qoHBWTYep5s1s91l0AlXdLQD6JLI/03RyB5JQiRhh/NIz9JXVHw4rCDf6X3DP/PNhNbJQL7m4ylex/u+cJbJwLFBosd7rUEbX3kT0GVwFOySs5jzj1R3C3KdU3dH3ItZT4xoPj36XhvzG5V27Ispn41FAu1Q6pKri62PgbUDeK78in9gjCZcxFQThoFob6d40+UB3MYlKIzP14XwzN55MF7gfiEhRV8LQevX4Zo6cHv7muEJv2nFbjZw0LQhx7NSOhUpbhrG25TJEzCPg7UGDYYeTrqW70Fw5wGdnIMbBuXjZFsQbY13io5PsaA1v/iAFsHW3HwjJ5FLs7IY4yDc7fvVr+pc8Vitp+6tV2ZmFl+zyuk0Eucwd2j8zclxxn3N3LAOmLeK2SNhl4ibZf5QxTJHHQ050T/p9x9gaQunNM7n2D3oZe9qejulnZMVuFZ6yyyrr8SwLVnOdyHW8xBIpfiDBRARCj+891nRzy8KN8XtuhKv/JIKcSNVe/yZCHpARvyX0pklMTvOe0nyL3NSFD2zSjHRkxRVJ0+iDu319H/66tWiUffa5dZqmgZ7x2Rspe0O0DlGBt7xCheoeyW0JOpB5NT8NGzZZYrD9gHiiexbfyxfin/FOhM8dQ0T5KEVzCZwdPPhgA3t0D0Q== ahmed@live.fr
+        port: 22
+        script: |
+          # Set final permissions
+          sudo chown -R www-data:www-data /applis/dev/vue-app
+          sudo chmod -R 755 /applis/dev/vue-app
+          
+          # Optional: Restart nginx if needed
+          # sudo systemctl reload nginx
+          
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Application deployed to: /applis/dev/vue-app" 
