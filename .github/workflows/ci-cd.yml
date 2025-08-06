@@ -22,7 +22,7 @@ jobs:
       - name: Prepare deployment directory on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: { { secrets.VPS_HOST } }
+          host: {{ secrets.VPS_HOST }}
           username: root
           key: |
             -----BEGIN OPENSSH PRIVATE KEY-----
@@ -96,7 +96,7 @@ jobs:
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: { { secrets.VPS_HOST } }
+          host: {{ secrets.VPS_HOST }}
           username: root
           key: |
             -----BEGIN OPENSSH PRIVATE KEY-----
@@ -156,7 +156,7 @@ jobs:
       - name: Finalize deployment
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: { { secrets.VPS_HOST } }
+          host: {{ secrets.VPS_HOST }}
           username: root
           key: |
             -----BEGIN OPENSSH PRIVATE KEY-----
