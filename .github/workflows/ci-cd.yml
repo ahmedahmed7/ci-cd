@@ -10,9 +10,14 @@ jobs:
 
     steps:
 
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Build
-        run:
-         npm run build
+        run: npm run build
 
       - name: Prepare deployment directory on VPS
         uses: appleboy/ssh-action@v1.0.3
