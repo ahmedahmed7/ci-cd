@@ -210,19 +210,11 @@ jobs:
             -----END OPENSSH PRIVATE KEY-----
           port: 22
           script: |
-            # Set proper permissions
-            chown -R www-data:www-data /applis/dev/vue-app
-            chmod -R 755 /applis/dev/ci-cd
-            
-            # Clean up old backups (keep only last 5)
-            cd /applis/dev/ci-cd
-            ls -t vue-app-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf || true
-            
-            # Verify deployment
-            ls -la /applis/dev/ci-cd
-            
-            # Optional: Restart nginx if needed
-            # systemctl reload nginx
-            
-            echo "✅ Deployment completed successfully!"
-            echo "🌐 Application deployed to: /applis/dev/ci-cd"
+            cd /applis/dev
+            npm install --production
+            npm install -g pm2
+            pm2 stop all || true
+            pm2 start npm --name "my-app" -- run start
+            pm2 save                        
+                                    
+                                   
