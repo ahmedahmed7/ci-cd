@@ -1,15 +1,36 @@
-name: Create Dev Directory on VPS
+name: Deploy App to VPS
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  setup-directory:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create dev directory on VPS
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare deployment directory on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 148.230.124.150
@@ -69,10 +90,58 @@ jobs:
             # Create /applis/dev directory
             mkdir -p /applis/dev
             
+            # Navigate to the directory
+            cd /applis/dev
+            
+            # Create a backup of current version if it exists
+            if [ -d "vue-app" ]; then
+              mv vue-app vue-app-backup-$(date +%Y%m%d-%H%M%S)
+              echo "✅ Backup created"
+            fi
+            
+            # Create new directory for the app
+            mkdir -p vue-app
+            
+            echo "✅ Deployment directory prepared"
+
+      - name: Copy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 148.230.124.150
+          username: root
+          key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            [VOTRE_CLE_PRIVEE_COMPLETE_ICI]
+            -----END OPENSSH PRIVATE KEY-----
+          port: 22
+          source: "dist/*"
+          target: "/applis/dev/vue-app"
+          strip_components: 1
+
+      - name: Finalize deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 148.230.124.150
+          username: root
+          key: |
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            [VOTRE_CLE_PRIVEE_COMPLETE_ICI]
+            -----END OPENSSH PRIVATE KEY-----
+          port: 22
+          script: |
             # Set proper permissions
-            chmod 755 /applis/dev
+            chown -R www-data:www-data /applis/dev/vue-app
+            chmod -R 755 /applis/dev/vue-app
             
-            # Verify directory was created
-            ls -la /applis/dev
+            # Clean up old backups (keep only last 5)
+            cd /applis/dev
+            ls -t vue-app-backup-* 2>/dev/null | tail -n +6 | xargs rm -rf || true
             
-            echo "✅ Directory /applis/dev created successfully!"
+            # Verify deployment
+            ls -la /applis/dev/vue-app
+            
+            # Optional: Restart nginx if needed
+            # systemctl reload nginx
+            
+            echo "✅ Deployment completed successfully!"
+            echo "🌐 Application deployed to: /applis/dev/vue-app"
