@@ -1,0 +1,32 @@
+{
+  "name": "vue-ci-cd-demo",
+  "version": "1.0.0",
+  "description": "A simple Vue project with CI/CD pipeline",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "dependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.20.0",
+    "vitest": "^1.0.0",
+    "@vue/test-utils": "^2.4.0"
+  },
+  "keywords": [
+    "vue",
+    "ci-cd",
+    "github-actions"
+  ],
+  "author": "",
+  "license": "MIT"
+} 
