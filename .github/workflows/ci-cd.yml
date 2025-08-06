@@ -34,7 +34,56 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key:
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            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
+            -----END OPENSSH PRIVATE KEY-----
           script: |
             mkdir -p /var/www/myapp
             echo "VPS directory ready"
@@ -45,6 +94,55 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key:
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            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
+            -----END OPENSSH PRIVATE KEY-----
           source: "dist/*"
           target: "/var/www/myapp"
