@@ -77,7 +77,7 @@ jobs:
           port: 22
           script: |
             # Create /applis/dev/ci-cd directory
-            mkdir -p /applis/dev/cd-cd
+            mkdir -p /applis/dev/ci-cd
             
             # Navigate to the directory
             cd /applis/dev/ci-cd
