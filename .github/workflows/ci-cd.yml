@@ -76,8 +76,8 @@ jobs:
             -----END OPENSSH PRIVATE KEY-----
           port: 22
           script: |
-            # Create /applis/dev directory
-            mkdir -p /applis/dev
+            # Create /applis/dev/ci-cd directory
+            mkdir -p /applis/dev/cd-cd
             
             # Navigate to the directory
             cd /applis/dev/ci-cd
