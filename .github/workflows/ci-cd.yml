@@ -11,7 +11,7 @@ jobs:
     steps:
 
       - name: Build
-        run:
+        run: |
          cd applis/dev
          npm run build
 
