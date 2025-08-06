@@ -11,8 +11,7 @@ jobs:
     steps:
 
       - name: Build
-        run: |
-         cd /applis/dev
+        run:
          npm run build
 
       - name: Prepare deployment directory on VPS
