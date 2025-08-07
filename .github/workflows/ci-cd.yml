@@ -149,7 +149,7 @@ jobs:
             gUW+2Ie27uefAAAADWFobWVkQGxpdmUuZnIBAgMEBQ==
             -----END OPENSSH PRIVATE KEY-----
           port: 22
-          source: "dist/*"
+          source: "."
           target: "/applis/dev/ci-cd"
           strip_components: 1
 
@@ -211,6 +211,8 @@ jobs:
           port: 22
           script: |
             cd /applis/dev/ci-cd
-            npm install --verbose          
+            npm run build
+            pm2 start ecosystem.config.js
+
                                     
                                    
