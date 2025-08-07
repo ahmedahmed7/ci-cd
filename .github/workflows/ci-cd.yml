@@ -212,7 +212,7 @@ jobs:
           script: |
             cd /applis/dev/ci-cd
             npm run build
-            pm2 start ecosystem.config.js
+            pm2 stop all
 
                                     
                                    
