@@ -8,12 +8,7 @@
     <main class="main">
       <div class="card">
         <h2>Features</h2>
-        <ul class="features">
-          <li>✅ Vue 3 with Composition API</li>
-          <li>✅ Vite for fast development</li>
-          <li>✅ ESLint for code quality</li>
-          <li>✅ GitHub Actions CI/CD</li>
-        </ul>
+       <p>day day day</p>
       </div>
       
       <div class="card">
