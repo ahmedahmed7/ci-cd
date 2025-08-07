@@ -12,7 +12,6 @@
           <li>✅ Vue 3 with Composition API</li>
           <li>✅ Vite for fast development</li>
           <li>✅ ESLint for code quality</li>
-          <li>✅ Vitest for testing</li>
           <li>✅ GitHub Actions CI/CD</li>
         </ul>
       </div>
