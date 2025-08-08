@@ -46,7 +46,7 @@
     </main>
     
     <footer class="footer">
-      <p>Built with ❤️❤️ using Vue 3 and PM2</p>
+      <p>Built with ❤️❤❤ using Vue 3 and PM2</p>
     </footer>
   </div>
 </template>
