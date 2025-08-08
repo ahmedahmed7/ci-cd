@@ -76,7 +76,7 @@ jobs:
             gUW+2Ie27uefAAAADWFobWVkQGxpdmUuZnIBAgMEBQ==
             -----END OPENSSH PRIVATE KEY-----
           port: 22
-          source: "."
+          source: "./dist"
           target: "/applis/dev/ci-cd"
           strip_components: 1
 
