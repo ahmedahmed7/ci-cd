@@ -1,57 +1,62 @@
-name: deploy-app
+name: Deploy App to VPS
 
-steps:
+on:
+  push:
+    branches: [ main ]
 
-  # 1️⃣ Checkout code
-  - name: Checkout
-    image: alpine/git
-    commands:
-      - git clone https://github.com/your/repo.git .
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-  # 2️⃣ Install dependencies
-  - name: Install dependencies
-    image: node:20
-    commands:
-      - npm install
+    steps:
+      # 1️⃣ Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  # 3️⃣ Build project
-  - name: Build
-    image: node:20
-    commands:
-      - npm run build
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-  # 4️⃣ Setup SSH key from base64 secret
-  - name: Setup SSH key
-    image: alpine
-    environment:
-      VPS_SSH_KEY_B64:
-        from_secret: VPS_SSH_KEY
-    commands:
-      - mkdir -p ~/.ssh
-      - echo "$VPS_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
-      - chmod 600 ~/.ssh/id_rsa
-      - ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: npm ci
 
-  # 5️⃣ Copy files to VPS
-  - name: Copy files
-    image: appleboy/drone-scp
-    environment:
-      VPS_HOST:
-        from_secret: VPS_HOST
-    settings:
-      host: $VPS_HOST
-      username: ubuntu
-      key: ~/.ssh/id_rsa
-      port: 22
-      source: ./dist
-      target: /applis/dev/ci-cd
-      strip_components: 1
+      # 4️⃣ Build the project
+      - name: Build
+        run: npm run build
 
-  # 6️⃣ Run remote commands via SSH
-  - name: Finalize deployment
-    image: appleboy/drone-ssh
-    environment:
-      VPS_HOST:
-        from_secret: VPS_HOST
-    settings:
-      host: $VPS_HOST
+      # 5️⃣ Setup SSH key
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      # 6️⃣ Copy built files to VPS via SCP
+      - name: Copy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key_path: ~/.ssh/id_rsa
+          port: 22
+          source: "./dist/*"
+          target: "/applis/dev/ci-cd/"
+          strip_components: 1
+
+      # 7️⃣ Install dependencies and restart app on VPS
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key_path: ~/.ssh/id_rsa
+          port: 22
+          script: |
+            cd /applis/dev/ci-cd
+            npm ci --production
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config
