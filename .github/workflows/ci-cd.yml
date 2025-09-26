@@ -32,7 +32,7 @@ jobs:
         with:
           host: ${{secrets.VPS_HOST}}
           username: ubuntu
-          key_path: ~/.ssh/id_ssh
+          key_path: ~/.ssh/id_rsa
 
           port: 22
           source: "./dist"
@@ -44,7 +44,7 @@ jobs:
         with:
           host: ${{secrets.VPS_HOST}}
           username: root
-          key_path: ~/.ssh/id_ssh
+          key_path: ~/.ssh/id_rsa
           port: 22
           script: |
             cd /applis/dev/ci-cd
