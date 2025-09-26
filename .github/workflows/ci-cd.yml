@@ -18,11 +18,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       # 3️⃣ Install dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # 4️⃣ Build the project
       - name: Build
@@ -59,4 +58,4 @@ jobs:
           script: |
             cd /applis/dev/ci-cd
             npm ci --production
-            pm2 restart ecosystem.config.js || pm2 start ecosystem.config
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
