@@ -19,13 +19,20 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Decode SSH key
+        run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+
+
 
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{secrets.VPS_HOST}}
-          username: root
-          key: ${{secrets.VPS_SSH_KEY}}
+          username: ubuntu
+          key_path: ~/.ssh/id_ssh
 
           port: 22
           source: "./dist"
@@ -37,7 +44,7 @@ jobs:
         with:
           host: ${{secrets.VPS_HOST}}
           username: root
-          key: ${{secrets.VPS_SSH_KEY}}
+          key_path: ~/.ssh/id_ssh
           port: 22
           script: |
             cd /applis/dev/ci-cd
