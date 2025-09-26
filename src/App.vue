@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <header class="header">
-      <h1>📝 Todo List</h1>
+      <h1>New Todo List</h1>
       <p>Gérez vos tâches facilement</p>
     </header>
     
