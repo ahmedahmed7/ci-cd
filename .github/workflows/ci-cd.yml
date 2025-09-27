@@ -27,22 +27,37 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 5️⃣ Setup SSH key from secrets (base64 decoded)
+      # 5️⃣ Setup SSH key from secrets (with better debugging)
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
+          
+          # Debug the secret first
+          echo "VPS_SSH_KEY secret length: ${#VPS_SSH_KEY}"
+          echo "First 50 chars of secret: ${VPS_SSH_KEY:0:50}..."
+          
+          # Try to decode and save
           echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
+          
+          # Check result
+          echo "SSH key file size after decode: $(wc -c ~/.ssh/id_rsa)"
+          
+          # If empty, try without base64 decode
+          if [ ! -s ~/.ssh/id_rsa ]; then
+            echo "Base64 decode failed, trying raw key..."
+            echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+            echo "SSH key file size after raw: $(wc -c ~/.ssh/id_rsa)"
+          fi
+          
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           
-          # Debug information
-          echo "SSH key path: ~/.ssh/id_rsa"
-          echo "SSH key file exists: $(ls -la ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
-          echo "SSH key file size: $(wc -c ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
-          echo "SSH key first line: $(head -1 ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
-          echo "SSH key last line: $(tail -1 ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
-          echo "SSH directory contents: $(ls -la ~/.ssh/)"
+          # Final check
+          echo "Final SSH key first line: $(head -1 ~/.ssh/id_rsa)"
+          echo "Final SSH key last line: $(tail -1 ~/.ssh/id_rsa)"
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
       # 6️⃣ Copy files to VPS (manual SCP)
       - name: Copy files to VPS
