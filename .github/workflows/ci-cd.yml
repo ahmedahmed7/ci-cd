@@ -13,18 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
-
 
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{secrets.VPS_HOST}}
-          username: root
+          username: ubuntu
           key: ${{secrets.VPS_SSH_KEY}}
           port: 22
           source: "."
@@ -40,6 +34,7 @@ jobs:
           port: 22
           script: |
             cd /applis/dev/ci-cd
+            npm install
             npm run build
             pm2 start ecosystem.config.js
 
