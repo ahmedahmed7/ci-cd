@@ -27,54 +27,31 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 5️⃣ Setup SSH key from secrets (with better debugging)
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          
-          # Debug the secret first
-          echo "VPS_SSH_KEY secret length: ${#VPS_SSH_KEY}"
-          echo "First 50 chars of secret: ${VPS_SSH_KEY:0:50}..."
-          
-          # Try to decode and save
-          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
-          
-          # Check result
-          echo "SSH key file size after decode: $(wc -c ~/.ssh/id_rsa)"
-          
-          # If empty, try without base64 decode
-          if [ ! -s ~/.ssh/id_rsa ]; then
-            echo "Base64 decode failed, trying raw key..."
-            echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
-            echo "SSH key file size after raw: $(wc -c ~/.ssh/id_rsa)"
-          fi
-          
-          chmod 600 ~/.ssh/id_rsa
-          chmod 700 ~/.ssh
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          
-          # Final check
-          echo "Final SSH key first line: $(head -1 ~/.ssh/id_rsa)"
-          echo "Final SSH key last line: $(tail -1 ~/.ssh/id_rsa)"
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      # 5️⃣ Alternative: Setup SSH agent
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      # 6️⃣ Copy files to VPS (manual SCP)
+      # 6️⃣ Copy files to VPS (with SSH agent)
       - name: Copy files to VPS
         run: |
-          # Test SSH connection first
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
+          # Add VPS to known hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           
-          # Create target directory if it doesn't exist
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p /applis/dev/ci-cd"
+          # Test SSH connection
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
           
-          # Copy files using SCP
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -r ./dist/* ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/applis/dev/ci-cd/
+          # Create target directory
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p /applis/dev/ci-cd"
+          
+          # Copy files
+          scp -o StrictHostKeyChecking=no -r ./dist/* ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/applis/dev/ci-cd/
 
-      # 7️⃣ Deploy on VPS (manual SSH)
+      # 7️⃣ Deploy on VPS (with SSH agent)
       - name: Finalize deployment
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd /applis/dev/ci-cd
             npm install --production
             pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
