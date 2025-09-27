@@ -9,50 +9,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repository
+
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm install
 
-      # 4️⃣ Build the project
       - name: Build
         run: npm run build
 
-      # 5️⃣ Alternative: Setup SSH agent
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      # 6️⃣ Copy files to VPS (with SSH agent)
       - name: Copy files to VPS
-        run: |
-          # Add VPS to known hosts
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          
-          # Test SSH connection
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
-          
-          # Create target directory
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p /applis/dev/ci-cd"
-          
-          # Copy files
-          scp -o StrictHostKeyChecking=no -r ./dist/* ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/applis/dev/ci-cd/
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{secrets.VPS_HOST}}
+          username: root
+          key: ${{secrets.VPS_SSH_KEY}}
+          port: 22
+          source: "."
+          target: "/applis/dev/ci-cd"
+          strip_components: 1
 
-      # 7️⃣ Deploy on VPS (with SSH agent)
       - name: Finalize deployment
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{secrets.VPS_HOST}}
+          username: root
+          key: ${{secrets.VPS_SSH_KEY}}
+          port: 22
+          script: |
             cd /applis/dev/ci-cd
-            npm install --production
-            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
-          EOF
+            npm run build
+            pm2 start ecosystem.config.js
+
+                                    
+                                   
