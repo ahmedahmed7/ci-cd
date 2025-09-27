@@ -1,141 +1,215 @@
-name: Deploy App to Selected Regions
+name: Deploy to Multiple Regions
 on:
   workflow_dispatch:
     inputs:
-      regions:
-        description: 'Select deployment regions (comma-separated)'
-        required: true
-        default: 'us-east'
-        type: string
+      us_east:
+        description: '🇺🇸 Deploy to US East'
+        type: boolean
+        default: false
+      us_west:
+        description: '🇺🇸 Deploy to US West'
+        type: boolean
+        default: false
+      eu_central:
+        description: '🇪🇺 Deploy to EU Central'
+        type: boolean
+        default: false
+      asia_pacific:
+        description: '🌏 Deploy to Asia Pacific'
+        type: boolean
+        default: false
+      canada_central:
+        description: '🇨🇦 Deploy to Canada Central'
+        type: boolean
+        default: false
       environment:
-        description: 'Environment type'
+        description: 'Environment'
         required: true
-        default: 'production'
         type: choice
+        default: 'production'
         options:
           - production
           - staging
           - development
 
 jobs:
-  deploy:
+  deploy-us-east:
+    if: ${{ github.event.inputs.us_east == 'true' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        region: ${{ fromJson(format('[{0}]', github.event.inputs.regions)) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Parse regions input
-        id: parse-regions
-        run: |
-          # Convert comma-separated string to array
-          regions="${{ github.event.inputs.regions }}"
-          # Remove spaces and convert to JSON array
-          regions=$(echo "$regions" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R . | jq -s .)
-          echo "regions=$regions" >> $GITHUB_OUTPUT
-
-  deploy-to-regions:
-    runs-on: ubuntu-latest
-    needs: deploy
-    strategy:
-      matrix:
-        region: ${{ fromJson(needs.deploy.outputs.regions) }}
-      fail-fast: false  # Continue deploying to other regions even if one fails
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set deployment variables for ${{ matrix.region }}
-        id: deploy-config
-        run: |
-          environment="${{ github.event.inputs.environment }}"
-          region="${{ matrix.region }}"
-          
-          # Set host based on region
-          case "$region" in
-            "us-east")
-              echo "host=${{ secrets.VPS_HOST_US_EAST }}" >> $GITHUB_OUTPUT
-              ;;
-            "us-west")
-              echo "host=${{ secrets.VPS_HOST_US_WEST }}" >> $GITHUB_OUTPUT
-              ;;
-            "eu-central")
-              echo "host=${{ secrets.VPS_HOST_EU_CENTRAL }}" >> $GITHUB_OUTPUT
-              ;;
-            "asia-pacific")
-              echo "host=${{ secrets.VPS_HOST_ASIA_PACIFIC }}" >> $GITHUB_OUTPUT
-              ;;
-            "canada-central")
-              echo "host=${{ secrets.VPS_HOST_CANADA_CENTRAL }}" >> $GITHUB_OUTPUT
-              ;;
-            *)
-              echo "Unknown region: $region"
-              exit 1
-              ;;
-          esac
-          
-          # Set target path and PM2 config based on environment
-          case "$environment" in
-            "production")
-              echo "target=/applis/prod/$region" >> $GITHUB_OUTPUT
-              echo "pm2_config=ecosystem.prod.$region.config.js" >> $GITHUB_OUTPUT
-              ;;
-            "staging")
-              echo "target=/applis/staging/$region" >> $GITHUB_OUTPUT
-              echo "pm2_config=ecosystem.staging.$region.config.js" >> $GITHUB_OUTPUT
-              ;;
-            "development")
-              echo "target=/applis/dev/$region" >> $GITHUB_OUTPUT
-              echo "pm2_config=ecosystem.dev.$region.config.js" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
-      - name: Copy files to ${{ matrix.region }} (${{ github.event.inputs.environment }})
+      - name: Deploy to US East
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.deploy-config.outputs.host }}
+          host: ${{ secrets.VPS_HOST_US_EAST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           source: "."
-          target: ${{ steps.deploy-config.outputs.target }}
+          target: "/applis/${{ github.event.inputs.environment }}/us-east"
           strip_components: 1
 
-      - name: Deploy to ${{ matrix.region }} (${{ github.event.inputs.environment }})
+      - name: Start application in US East
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ steps.deploy-config.outputs.host }}
+          host: ${{ secrets.VPS_HOST_US_EAST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
-            cd ${{ steps.deploy-config.outputs.target }}
-            
-            # Install dependencies if package.json changed
-            if [ -f package.json ]; then
-              npm install --production
-            fi
-            
-            # Build the application
+            cd /applis/${{ github.event.inputs.environment }}/us-east
             npm run build
-            
-            # Start/restart with PM2
-            if pm2 describe ${{ steps.deploy-config.outputs.pm2_config }} > /dev/null; then
-              pm2 restart ${{ steps.deploy-config.outputs.pm2_config }}
-            else
-              pm2 start ${{ steps.deploy-config.outputs.pm2_config }}
-            fi
-            
-            # Save PM2 configuration
-            pm2 save
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
 
-      - name: Deployment Status for ${{ matrix.region }}
-        if: always()
+  deploy-us-west:
+    if: ${{ github.event.inputs.us_west == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to US West
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST_US_WEST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "."
+          target: "/applis/${{ github.event.inputs.environment }}/us-west"
+          strip_components: 1
+
+      - name: Start application in US West
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST_US_WEST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /applis/${{ github.event.inputs.environment }}/us-west
+            npm run build
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+
+  deploy-eu-central:
+    if: ${{ github.event.inputs.eu_central == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EU Central
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST_EU_CENTRAL }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "."
+          target: "/applis/${{ github.event.inputs.environment }}/eu-central"
+          strip_components: 1
+
+      - name: Start application in EU Central
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST_EU_CENTRAL }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /applis/${{ github.event.inputs.environment }}/eu-central
+            npm run build
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+
+  deploy-asia-pacific:
+    if: ${{ github.event.inputs.asia_pacific == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Asia Pacific
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST_ASIA_PACIFIC }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "."
+          target: "/applis/${{ github.event.inputs.environment }}/asia-pacific"
+          strip_components: 1
+
+      - name: Start application in Asia Pacific
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST_ASIA_PACIFIC }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /applis/${{ github.event.inputs.environment }}/asia-pacific
+            npm run build
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+
+  deploy-canada-central:
+    if: ${{ github.event.inputs.canada_central == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Canada Central
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST_CANADA_CENTRAL }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: "."
+          target: "/applis/${{ github.event.inputs.environment }}/canada-central"
+          strip_components: 1
+
+      - name: Start application in Canada Central
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST_CANADA_CENTRAL }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            cd /applis/${{ github.event.inputs.environment }}/canada-central
+            npm run build
+            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+
+  summary:
+    needs: [deploy-us-east, deploy-us-west, deploy-eu-central, deploy-asia-pacific, deploy-canada-central]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Summary
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Successfully deployed to ${{ matrix.region }} (${{ github.event.inputs.environment }})"
-          else
-            echo "❌ Failed to deploy to ${{ matrix.region }} (${{ github.event.inputs.environment }})"
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.us_east }}" == "true" ]; then
+            echo "- 🇺🇸 US East: ${{ needs.deploy-us-east.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.us_west }}" == "true" ]; then
+            echo "- 🇺🇸 US West: ${{ needs.deploy-us-west.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.eu_central }}" == "true" ]; then
+            echo "- 🇪🇺 EU Central: ${{ needs.deploy-eu-central.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.asia_pacific }}" == "true" ]; then
+            echo "- 🌏 Asia Pacific: ${{ needs.deploy-asia-pacific.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event.inputs.canada_central }}" == "true" ]; then
+            echo "- 🇨🇦 Canada Central: ${{ needs.deploy-canada-central.result }}" >> $GITHUB_STEP_SUMMARY
           fi
