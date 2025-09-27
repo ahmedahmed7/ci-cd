@@ -1,40 +1,141 @@
-name: Deploy App to VPS
-
+name: Deploy App to Selected Regions
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: 'Select deployment regions (comma-separated)'
+        required: true
+        default: 'us-east'
+        type: string
+      environment:
+        description: 'Environment type'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        region: ${{ fromJson(format('[{0}]', github.event.inputs.regions)) }}
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Copy files to VPS
+      - name: Parse regions input
+        id: parse-regions
+        run: |
+          # Convert comma-separated string to array
+          regions="${{ github.event.inputs.regions }}"
+          # Remove spaces and convert to JSON array
+          regions=$(echo "$regions" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R . | jq -s .)
+          echo "regions=$regions" >> $GITHUB_OUTPUT
+
+  deploy-to-regions:
+    runs-on: ubuntu-latest
+    needs: deploy
+    strategy:
+      matrix:
+        region: ${{ fromJson(needs.deploy.outputs.regions) }}
+      fail-fast: false  # Continue deploying to other regions even if one fails
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set deployment variables for ${{ matrix.region }}
+        id: deploy-config
+        run: |
+          environment="${{ github.event.inputs.environment }}"
+          region="${{ matrix.region }}"
+          
+          # Set host based on region
+          case "$region" in
+            "us-east")
+              echo "host=${{ secrets.VPS_HOST_US_EAST }}" >> $GITHUB_OUTPUT
+              ;;
+            "us-west")
+              echo "host=${{ secrets.VPS_HOST_US_WEST }}" >> $GITHUB_OUTPUT
+              ;;
+            "eu-central")
+              echo "host=${{ secrets.VPS_HOST_EU_CENTRAL }}" >> $GITHUB_OUTPUT
+              ;;
+            "asia-pacific")
+              echo "host=${{ secrets.VPS_HOST_ASIA_PACIFIC }}" >> $GITHUB_OUTPUT
+              ;;
+            "canada-central")
+              echo "host=${{ secrets.VPS_HOST_CANADA_CENTRAL }}" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown region: $region"
+              exit 1
+              ;;
+          esac
+          
+          # Set target path and PM2 config based on environment
+          case "$environment" in
+            "production")
+              echo "target=/applis/prod/$region" >> $GITHUB_OUTPUT
+              echo "pm2_config=ecosystem.prod.$region.config.js" >> $GITHUB_OUTPUT
+              ;;
+            "staging")
+              echo "target=/applis/staging/$region" >> $GITHUB_OUTPUT
+              echo "pm2_config=ecosystem.staging.$region.config.js" >> $GITHUB_OUTPUT
+              ;;
+            "development")
+              echo "target=/applis/dev/$region" >> $GITHUB_OUTPUT
+              echo "pm2_config=ecosystem.dev.$region.config.js" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Copy files to ${{ matrix.region }} (${{ github.event.inputs.environment }})
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{secrets.VPS_HOST}}
+          host: ${{ steps.deploy-config.outputs.host }}
           username: root
-          key: ${{secrets.VPS_SSH_KEY}}
+          key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           source: "."
-          target: "/applis/dev/ci-cd"
+          target: ${{ steps.deploy-config.outputs.target }}
           strip_components: 1
 
-      - name: Finalize deployment
+      - name: Deploy to ${{ matrix.region }} (${{ github.event.inputs.environment }})
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{secrets.VPS_HOST}}
+          host: ${{ steps.deploy-config.outputs.host }}
           username: root
-          key: ${{secrets.VPS_SSH_KEY}}
+          key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
-            cd /applis/dev/ci-cd
+            cd ${{ steps.deploy-config.outputs.target }}
+            
+            # Install dependencies if package.json changed
+            if [ -f package.json ]; then
+              npm install --production
+            fi
+            
+            # Build the application
             npm run build
-            pm2 start ecosystem.config.js
+            
+            # Start/restart with PM2
+            if pm2 describe ${{ steps.deploy-config.outputs.pm2_config }} > /dev/null; then
+              pm2 restart ${{ steps.deploy-config.outputs.pm2_config }}
+            else
+              pm2 start ${{ steps.deploy-config.outputs.pm2_config }}
+            fi
+            
+            # Save PM2 configuration
+            pm2 save
 
-                                    
-                                   
+      - name: Deployment Status for ${{ matrix.region }}
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to ${{ matrix.region }} (${{ github.event.inputs.environment }})"
+          else
+            echo "❌ Failed to deploy to ${{ matrix.region }} (${{ github.event.inputs.environment }})"
+          fi
