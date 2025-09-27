@@ -32,17 +32,17 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
-          echo "************"
-          echo "First line of SSH key:"
-          head -1 ~/.ssh/id_rsa
-          
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-          # Debug: Check if key file exists and has content
-          echo "SSH key file size:" $(wc -c ~/.ssh/id_rsa)
-          echo "SSH key first line:" $(head -1 ~/.ssh/id_rsa)
-          echo "SSH key last line:" $(tail -1 ~/.ssh/id_rsa)
+          
+          # Debug information
+          echo "SSH key path: ~/.ssh/id_rsa"
+          echo "SSH key file exists: $(ls -la ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
+          echo "SSH key file size: $(wc -c ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
+          echo "SSH key first line: $(head -1 ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
+          echo "SSH key last line: $(tail -1 ~/.ssh/id_rsa 2>/dev/null || echo 'NOT FOUND')"
+          echo "SSH directory contents: $(ls -la ~/.ssh/)"
 
       # 6️⃣ Copy files to VPS (manual SCP)
       - name: Copy files to VPS
