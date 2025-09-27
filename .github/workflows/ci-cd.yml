@@ -27,11 +27,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 5️⃣ Setup SSH key from secrets (with debugging)
+      # 5️⃣ Setup SSH key from secrets (base64 decoded)
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
@@ -40,27 +40,23 @@ jobs:
           echo "SSH key first line:" $(head -1 ~/.ssh/id_rsa)
           echo "SSH key last line:" $(tail -1 ~/.ssh/id_rsa)
 
-      # 6️⃣ Copy files to VPS
+      # 6️⃣ Copy files to VPS (manual SCP)
       - name: Copy files to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key_path: ~/.ssh/id_rsa
-          port: 22
-          source: "./dist"
-          target: "/applis/dev/ci-cd"
-          strip_components: 1
+        run: |
+          # Test SSH connection first
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
+          
+          # Create target directory if it doesn't exist
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p /applis/dev/ci-cd"
+          
+          # Copy files using SCP
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -r ./dist/* ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/applis/dev/ci-cd/
 
-      # 7️⃣ Deploy on VPS
+      # 7️⃣ Deploy on VPS (manual SSH)
       - name: Finalize deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key_path: ~/.ssh/id_rsa
-          port: 22
-          script: |
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd /applis/dev/ci-cd
             npm install --production
             pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+          EOF
