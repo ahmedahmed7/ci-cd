@@ -1,0 +1,133 @@
+name: Create Release on Merge to Master
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - '**' # Ignore tag pushes to avoid infinite loops
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for tags
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: Check if tag exists
+        id: check-tag
+        run: |
+          VERSION="${{ steps.package-version.outputs.version }}"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION does not exist"
+          fi
+
+      - name: Generate release version
+        id: release-version
+        if: steps.check-tag.outputs.exists == 'true'
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Extract version number and increment patch version
+          VERSION=$(echo $LATEST_TAG | sed 's/v//')
+          IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
+          MAJOR=${VERSION_PARTS[0]:-0}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          
+          echo "version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: v$NEW_VERSION"
+
+      - name: Set release version
+        id: final-version
+        run: |
+          if [ "${{ steps.check-tag.outputs.exists }}" == "true" ]; then
+            echo "version=${{ steps.release-version.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=v${{ steps.package-version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get commit message
+        id: commit-info
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.final-version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.final-version.outputs.version }}
+          name: Release ${{ steps.final-version.outputs.version }}
+          body: |
+            ## Release ${{ steps.final-version.outputs.version }}
+            
+            **Commit:** ${{ steps.commit-info.outputs.sha }}
+            
+            **Changes:**
+            ${{ steps.commit-info.outputs.message }}
+            
+            ---
+            *Automatically created on merge to master*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update package.json version (if tag was auto-generated)
+        if: steps.check-tag.outputs.exists == 'true'
+        run: |
+          NEW_VERSION="${{ steps.release-version.outputs.version }}"
+          # Remove 'v' prefix for package.json
+          VERSION_NUMBER=$(echo $NEW_VERSION | sed 's/v//')
+          npm version $VERSION_NUMBER --no-git-tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to $VERSION_NUMBER [skip ci]" || exit 0
+          git push origin master || git push origin main
+
